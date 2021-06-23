@@ -9,13 +9,36 @@ type HTTPServer struct {
 	service Service
 }
 
-func NewHTTP(service Service) *HTTPServer {
-	return &HTTPServer{
-		service: service,
-	}
+func NewHTTP() *HTTPServer {
+	return &HTTPServer{}
+}
+
+func (server *HTTPServer) UseService(service Service) {
+	server.service = service
 }
 
 func (server HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	todos, _ := server.service.GetAllTodos()
+	verified := server.verifyRequest(w, r)
+	if !verified {
+		return
+	}
+
+	todos, err := server.service.GetAllTodos()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	json.NewEncoder(w).Encode(todos)
+}
+
+func (HTTPServer) verifyRequest(w http.ResponseWriter, r *http.Request) bool {
+	if r.URL.Path != "/todos/" && r.URL.Path != "/todos" {
+		w.WriteHeader(http.StatusNotFound)
+		return false
+	}
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return false
+	}
+	return true
 }
